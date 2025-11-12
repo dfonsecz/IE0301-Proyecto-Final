@@ -53,3 +53,7 @@ git clone https://github.com/dfonsecz/IE0301-Proyecto-Final.git
 Este proyecto utiliza una licencia del MIT, puede encontrar los detalles en [LICENSE](https://github.com/dfonsecz/IE0301-Proyecto-Final/blob/main/LICENSE).
 
 ## Contacto
+
+- Byron Arguedas: byronarglop@gmail.com
+- Daniela Fonseca: daniela.fonsecazumbado@gmail.com
+- Mariana Solís: solisfanny2021@gmail.com
