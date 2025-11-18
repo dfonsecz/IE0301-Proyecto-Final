@@ -5,4 +5,4 @@ class Pipeline {
 
 };
 
-#endif PIPELINE_HPP
+#endif // PIPELINE_HPP
