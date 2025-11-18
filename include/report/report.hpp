@@ -5,4 +5,4 @@ class Report {
 
 };
 
-#define // REPORT_HPP
+#endif // REPORT_HPP
