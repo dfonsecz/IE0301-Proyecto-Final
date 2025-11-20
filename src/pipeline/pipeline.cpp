@@ -26,4 +26,27 @@ void Pipeline::run() {
     } else {
         std::cout << "Pipeline executing..."
     }
+
+    gst_element_set_state(pipeline, GST_STATE_PLAYING);
+    g_main_loop_run(loop);
+}
+
+void Pipeline::cleanup() {
+    tracked_objects.clear();
+
+    if (app_timer) {
+        g_timer_destroy(app_timer);
+        app_timer = nullptr;
+    }
+
+    if (pipeline) {
+        gst_element_set_state(pipeline, GST_STATE_NULL);
+        gst_object_unref(pipeline);
+        pipeline = nullptr;
+    }
+
+    if (loop) {
+        g_main_loop_unref(loop);
+        loop = nullptr;
+    }
 }
