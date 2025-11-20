@@ -8,6 +8,8 @@
 #include "roi/roi.hpp"
 
 class Pipeline {
+public:
+
 private:
     GstElement *pipeline;
     GMainLoop *loop;
@@ -21,6 +23,10 @@ private:
     gint source_height;
     gboolean roi_has_objects;
     gboolean roi_has_alerts;
+
+    // Methods
+    static gboolean create_pipeline();
+    static void cleanup();
 };
 
 #endif // PIPELINE_HPP
