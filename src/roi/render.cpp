@@ -1,4 +1,4 @@
-# include "render.hpp"
+# include "render.h"
 
 void set_color(NvOSD_ColorParams &c, float r, float g, float b, float a) {
     c.red = r; 

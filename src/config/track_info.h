@@ -9,7 +9,7 @@
 #include <gst/gst.h>
 #include <glib.h>
 #include <unordered_map>
-#include "config.h"
+#include "app_config.h"
 #include "gstnvdsmeta.h"
 
 // Contexto del tracker

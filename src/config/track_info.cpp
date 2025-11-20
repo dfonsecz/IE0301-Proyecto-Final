@@ -3,7 +3,7 @@
  * Implementación del sistema de tracking
  */
 
-#include "tracker.h"
+#include "config/track_info.h"
 #include <string.h>
 
 void tracker_init(TrackerContext *ctx, const ROIParams *roi, gint max_time, GTimer *app_timer) {

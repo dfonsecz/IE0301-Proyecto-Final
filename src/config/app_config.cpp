@@ -3,7 +3,7 @@
  * Implementación del parser de argumentos
  */
 
-#include "config.h"
+#include "app_config.h"
 #include <string.h>
 
 gboolean parse_arguments(int argc, char *argv[], AppConfig *config, ROIParams *roi) {
