@@ -14,23 +14,26 @@ Pipeline::~Pipeline() {
     cleanup();
 }
 
+// Initialization
 bool Pipeline::init() {
     loop = g_main_loop_new(nullptr, FALSE);
     return create_pipeline();
 }
 
+// Execute pipeline
 void Pipeline::run() {
     if (!pipeline || !loop) {
-        std::cerr << "Pipeline was not initialized."
+        std::cerr << "Pipeline was not initialized.";
         return;
     } else {
-        std::cout << "Pipeline executing..."
+        std::cout << "Pipeline executing...";
     }
 
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
     g_main_loop_run(loop);
 }
 
+// Cleanup
 void Pipeline::cleanup() {
     tracked_objects.clear();
 
@@ -51,6 +54,7 @@ void Pipeline::cleanup() {
     }
 }
 
+// Pipeline creation
 bool Pipeline::create_pipeline() {
     pipeline = gst_pipeline_new("secure-roi-pipeline");
     
@@ -101,7 +105,7 @@ bool Pipeline::create_pipeline() {
                 "batch-size", 1,
                 "width", 1920,
                 "height", 1080,
-                "batched-push-timeout", 4000000 // uSec
+                "batched-push-timeout", 4000000, // uSec
                 NULL);
     
     g_object_set(pgie,
@@ -157,4 +161,41 @@ bool Pipeline::create_pipeline() {
         std::cerr << "Failed to link parser -> decoder\n";
         return false;
     }
+
+    // Request pad
+    GstPad *dec_src  = gst_element_get_static_pad(decoder, "src");
+    GstPad *mux_sink = gst_element_get_request_pad(streammux, "sink_0");
+
+    if (gst_pad_link(dec_src, mux_sink) != GST_PAD_LINK_OK) {
+        std::cerr << "Failed to link decoder -> streammux\n";
+        gst_object_unref(dec_src);
+        gst_object_unref(mux_sink);
+        return false;
+    }
+
+    gst_object_unref(dec_src);
+    gst_object_unref(mux_sink);
+
+    // Full path to output
+    if (!gst_element_link_many(streammux, pgie, tracker, nvvidconv, nvosd,
+                               nvvidconv2, capsfilter, encoder, parser2, mux, sink, NULL)) {
+        std::cerr << "Failed to link to main pipeline\n";
+        return false;
+    }
+
+    // Pad probe -> attach callback
+    osd_sink_pad = gst_element_get_static_pad(nvosd, "sink");
+    gst_pad_add_probe(osd_sink_pad,
+                      GST_PAD_PROBE_TYPE_BUFFER,
+                      Pipeline::pad_probe_callback,
+                      this,
+                      NULL);
+    gst_object_unref(osd_sink_pad);
+
+    // Bus
+    bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
+    gst_bus_add_watch(bus, Pipeline::bus_callback, this);
+    gst_object_unref(bus);
+
+    return true;
 }
