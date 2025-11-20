@@ -1,27 +1,47 @@
-#ifndef TRACK_INFO_H
-#define TRACK_INFO_H
+/*
+ * tracker.h
+ * Sistema de tracking de objetos y ROI
+ */
 
+#ifndef TRACKER_H
+#define TRACKER_H
+
+#include <gst/gst.h>
 #include <glib.h>
+#include <unordered_map>
+#include "config.h"
+#include "gstnvdsmeta.h"
 
-// Estado del objeto
-enum ObjectState {
-    STATE_OUTSIDE,
-    STATE_INSIDE,
-    STATE_ALERT
+// Contexto del tracker
+struct TrackerContext {
+    std::unordered_map<guint64, TrackInfo> tracked_objects;
+    ROIParams roi;
+    gint max_time_seconds;
+    GTimer *app_timer;
+    guint total_detected;
+    guint total_alerts;
+    gint source_width;
+    gint source_height;
+    gboolean roi_has_objects;
+    gboolean roi_has_alerts;
 };
 
-// Declaración de la clase TrackInfo
-class TrackInfo {
-public:
-    guint64 track_id;
-    ObjectState state;
-    GTimer *timer;
-    gdouble total_time;
-    gdouble entry_timestamp;
-    gchar *class_name;
-    gboolean alert_triggered;
+// Inicializa el contexto del tracker
+void tracker_init(TrackerContext *ctx, const ROIParams *roi, gint max_time, GTimer *app_timer);
 
-    TrackInfo();  // Solo se declara
-};
+// Verifica si un bbox está dentro del ROI
+gboolean is_bbox_in_roi(NvOSD_RectParams *bbox, const ROIParams *roi, 
+                        gint frame_width, gint frame_height);
 
-#endif // TRACK_INFO_H
+// Procesa un objeto detectado
+void tracker_process_object(TrackerContext *ctx, NvDsObjectMeta *obj_meta,
+                           gint frame_width, gint frame_height);
+
+// Limpia objetos inactivos
+void tracker_cleanup_inactive(TrackerContext *ctx, 
+                             const std::unordered_map<guint64, bool> &active_tracks);
+
+// Libera recursos del tracker
+void tracker_destroy(TrackerContext *ctx);
+
+#endif // TRACKER_H
