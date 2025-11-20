@@ -50,3 +50,57 @@ void Pipeline::cleanup() {
         loop = nullptr;
     }
 }
+
+bool Pipeline::create_pipeline() {
+    pipeline = gst_pipeline_new("secure-roi-pipeline");
+    
+    if (!pipeline) {
+        std::cerr << "Failed to create pipeline\n";
+        return false;
+    }
+
+    // Create elements
+    GstElement *source, *demux, *parser, *decoder, *streammux;
+    GstElement *pgie, *tracker, *nvvidconv, *nvosd;
+    GstElement *nvvidconv2, *capsfilter, *encoder, *parser2, *mux, *sink;
+    GstPad *osd_sink_pad;
+    GstBus *bus;
+
+    // Source and decode
+    source     = gst_element_factory_make("filesrc",        "file-source");
+    demux      = gst_element_factory_make("qtdemux",        "demuxer");
+    parser     = gst_element_factory_make("h264parse",      "h264-parser");
+    decoder    = gst_element_factory_make("nvv4l2decoder",  "decoder");
+
+    // DeepStream code
+    streammux  = gst_element_factory_make("nvstreammux",    "stream-muxer");
+    pgie       = gst_element_factory_make("nvinfer",        "primary-infer");
+    tracker    = gst_element_factory_make("nvtracker",      "tracker");
+    nvvidconv  = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
+    nvosd      = gst_element_factory_make("nvdsosd",        "nv-onscreendisplay");
+
+    // Post-OSD -> encoder -> mp4
+    nvvidconv2 = gst_element_factory_make("nvvideoconvert", "post-osd-conv");
+    capsfilter = gst_element_factory_make("capsfilter",     "capsfilter");
+    encoder    = gst_element_factory_make("nvv4l2h264enc",  "h264-encoder");
+    parser2    = gst_element_factory_make("h264parse",      "h264-parser-out");
+    mux        = gst_element_factory_make("qtmux",          "mp4-muxer");
+    sink       = gst_element_factory_make("filesink",       "file-sink");
+
+    if (!source || !demux || !parser || !decoder || !streammux ||
+        !pgie || !tracker || !nvvidconv || !nvosd ||
+        !nvvidconv2 || !capsfilter || !encoder || !parser2 || !mux || !sink) {
+        g_printerr("Failed to create one or more elements\n");
+        return false;
+    }
+    
+    // Configure elements
+    g_object_set(source, "location", config.input_file().c_str(), NULL);
+    g_object_set(streammux,
+                "batch-size", 1,
+                "width", 1920,
+                "height", 1080,
+                "batched-push-timeout", 4000000 // uSec
+                NULL);
+
+}
