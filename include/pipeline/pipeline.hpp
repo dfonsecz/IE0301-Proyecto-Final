@@ -1,6 +1,12 @@
 #ifdef PIPELINE_HPP
 #define PIPELINE_HPP
 
+#include <unordered_map>
+#include <gst/gst.h>
+#include "config/app_config.hpp"
+#include "config/track_info.hpp"
+#include "roi/roi.hpp"
+
 class Pipeline {
 private:
     GstElement *pipeline;
