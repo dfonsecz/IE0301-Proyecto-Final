@@ -54,6 +54,39 @@ void Pipeline::cleanup() {
     }
 }
 
+// Static bus callback
+gboolean Pipeline::bus_callback(GstBus* bus, GstMessage* msg, gpointer data) {
+    Pipeline* self = static_cast<Pipeline*>(data);
+    self->handle_bus_message(msg);
+    return true;
+}
+
+// Static callback for dynamic pad
+void Pipeline::on_pad_added_callback(GstElement* element, GstPad* pad, gpointer data) {
+    GstElement* parser = GST_ELEMENT(data);
+    GstPad* sinkpad = gst_element_get_static_pad(parser, "sink");
+
+    if (!sinkpad) return;
+
+    if (!gst_pad_is_linked(sinkpad)) {
+        if (gst_pad_link(pad, sinkpad) != GST_PAD_LINK_OK) {
+            g_printerr("Failed to link dynamic pad\n");
+        }
+    }
+
+    gst_object_unref(sinkpad);
+}
+
+// Pad probe
+GstPadProbeReturn Pipeline::handle_pad_probe(GstPadProbeInfo* info) {
+    return GST_PAD_PROBE_OK;
+}
+
+GstPadProbeReturn Pipeline::pad_probe_callback(GstPad* pad, GstPadProbeInfo* info, gpointer udata) {
+    Pipeline* self = static_cast<Pipeline*>(udata);
+    return self->handle_pad_probe(info);
+}
+
 // Pipeline creation
 bool Pipeline::create_pipeline() {
     pipeline = gst_pipeline_new("secure-roi-pipeline");
