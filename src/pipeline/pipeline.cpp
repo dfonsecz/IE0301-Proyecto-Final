@@ -3,9 +3,9 @@
 #include "pipeline/pipeline.hpp"
 
 // Constructor
-Pipeline::Pipeline(const AppConfig& config, ROI& r) {
-    config = config;
-    roi = roi;
+Pipeline::Pipeline(const AppConfig& cfg, ROI& r) {
+    config = cfg;
+    roi = r;
     app_timer = g_timer_new();
 }
 
@@ -96,11 +96,39 @@ bool Pipeline::create_pipeline() {
     
     // Configure elements
     g_object_set(source, "location", config.input_file().c_str(), NULL);
+    
     g_object_set(streammux,
                 "batch-size", 1,
                 "width", 1920,
                 "height", 1080,
                 "batched-push-timeout", 4000000 // uSec
                 NULL);
+    
+    g_object_set(pgie,
+                "config-file-path",
+                "/opt/nvidia/deepstream/deepstream/samples/configs/deepstream-app/config_infer_primary.txt",
+                NULL);
+    
+    g_object_set(tracker,
+                "tracker-width", 640,
+                "tracker-height", 384,
+                "ll-lib-file", "/opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so",
+                "ll-config-file",
+                "/opt/nvidia/deepstream/deepstream/samples/configs/deepstream-app/config_tracker_NvDCF_perf.yml",
+                NULL);
 
+    g_object_set(encoder,
+                 "bitrate", 4000000, // 4 Mbps
+                 "preset-level", 1,
+                 "insert-sps-pps", true,
+                 "iframeinterval", 30,
+                 NULL);
+
+    g_object_set(sink,
+                "location", config.output_file().c_str(),
+                "sync", false, // Don't sync to clock
+                "async", false,
+                NULL);
+
+    // ...
 }
