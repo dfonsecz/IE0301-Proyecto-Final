@@ -9,6 +9,11 @@
 
 class Pipeline {
 public:
+    // Constructor
+    Pipeline(const AppConfig& config, ROI& roi);
+    
+    // Destructor
+    ~Pipeline();
 
 private:
     GstElement *pipeline;
