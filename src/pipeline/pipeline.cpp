@@ -130,5 +130,31 @@ bool Pipeline::create_pipeline() {
                 "async", false,
                 NULL);
 
-    // ...
+    // Caps
+    GstCaps *caps = gst_caps_from_string("video/x-raw(memory:NVMM), format=NV12");
+    g_object_set(capsfilter, "caps", caps, NULL);
+    gst_caps_unref(caps);
+
+    // Add elements to bin
+    gst_bin_add_many(GST_BIN(pipeline),
+                    source, demux, parser, decoder,
+                    streammux, pgie, tracker, nvvidconv, nvosd,
+                    nvvidconv2, capsfilter, encoder, parser2, mux, sink,
+                    NULL);
+
+    // Linking
+    if (!gst_element_link(source, demux)) {
+        g_printerr("Failed to link source -> demux\n");
+        return false;
+    }
+    
+    g_signal_connect(demux,
+                    "pad-added",
+                    G_CALLBACK(Pipeline::on_pad_added_callback),
+                    parser);
+
+    if (!gst_element_link_many(parser, decoder, NULL)) {
+        std::cerr << "Failed to link parser -> decoder\n";
+        return false;
+    }
 }
