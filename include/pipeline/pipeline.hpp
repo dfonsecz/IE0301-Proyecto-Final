@@ -26,7 +26,7 @@ private:
 
     // Logical state
     AppConfig config;
-    ROIParams roi;
+    ROI roi;
     std::unordered_map<guint64, TrackInfo> tracked_objects;
     
     // Timing
@@ -42,7 +42,7 @@ private:
 
 private:
     // Private methods
-    gboolean create_pipeline();
+    bool create_pipeline();
     void cleanup();
     void handle_bus_message(GstMessage *msg);
     GstPadProbeReturn handle_pad_probe(GstPadProbeInfo *info);
