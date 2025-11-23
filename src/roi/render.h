@@ -1,14 +1,14 @@
-/*
+	/*
  * render.h
  * Renderizado de ROI y overlay en pantalla
- */
+			 */
 
 #ifndef RENDER_H
 #define RENDER_H
 
 #include <gst/gst.h>
 #include <glib.h>
-#include "config.h"
+#include "app_config.hpp"
 #include "gstnvdsmeta.h"
 
 // Utilidad para asignar colores

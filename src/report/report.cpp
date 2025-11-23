@@ -3,7 +3,7 @@
  * Implementación de generación de reportes
  */
 
-#include "report.h"
+#include "report.hpp"
 #include <fstream>
 #include <iomanip>
 
