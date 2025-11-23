@@ -1,17 +1,24 @@
 /*
  * pipeline.cpp
- * Implementación del pipeline GStreamer
+ * Implementación del pipeline GStreamer con mejor manejo de errores
  */
 
-#include "pipeline.h"
-#include "config/track_info.h"
+#include "pipeline.hpp"
+#include "config/track_info.hpp"
 #include "roi/render.h"
-#include "report/report.h"
+#include "report/report.hpp"
 #include "gstnvdsmeta.h"
 #include <unordered_map>
+#include <sys/stat.h>
 
 // Variable global para el contexto del pipeline (usado por callbacks)
 static PipelineContext *g_pipeline_ctx = NULL;
+
+// Verifica si un archivo existe
+static gboolean file_exists(const gchar *filepath) {
+    struct stat buffer;
+    return (stat(filepath, &buffer) == 0);
+}
 
 void on_pad_added(GstElement *element, GstPad *pad, gpointer data) {
     GstElement *parser = GST_ELEMENT(data);
@@ -67,10 +74,27 @@ gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data) {
             gchar *debug;
             GError *error;
             gst_message_parse_error(msg, &error, &debug);
-            g_printerr("ERROR: %s\n", error->message);
+            g_printerr("ERROR from element %s: %s\n", 
+                      GST_OBJECT_NAME(msg->src), error->message);
+            if (debug) {
+                g_printerr("Debug info: %s\n", debug);
+            }
             g_free(debug);
             g_error_free(error);
             g_main_loop_quit(loop);
+            break;
+        }
+        case GST_MESSAGE_WARNING: {
+            gchar *debug;
+            GError *warning;
+            gst_message_parse_warning(msg, &warning, &debug);
+            g_printerr("WARNING from element %s: %s\n",
+                      GST_OBJECT_NAME(msg->src), warning->message);
+            if (debug) {
+                g_printerr("Debug info: %s\n", debug);
+            }
+            g_free(debug);
+            g_error_free(warning);
             break;
         }
         default:
@@ -123,6 +147,14 @@ GstPadProbeReturn osd_sink_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *info,
 gboolean pipeline_create(PipelineContext *ctx) {
     g_pipeline_ctx = ctx; // Guardar para callbacks
     
+    // Verificar archivo de entrada
+    if (!file_exists(ctx->config->input_file)) {
+        g_printerr("ERROR: Input file not found: %s\n", ctx->config->input_file);
+        return FALSE;
+    }
+    
+    g_print("Input file verified: %s\n", ctx->config->input_file);
+    
     GstElement *source, *demux, *parser, *decoder, *streammux;
     GstElement *pgie, *tracker_elem, *nvvidconv, *nvosd;
     GstElement *nvvidconv2, *capsfilter, *encoder, *parser2, *mux, *sink;
@@ -159,32 +191,83 @@ gboolean pipeline_create(PipelineContext *ctx) {
     if (!source || !demux || !parser || !decoder || !streammux ||
         !pgie || !tracker_elem || !nvvidconv || !nvosd ||
         !nvvidconv2 || !capsfilter || !encoder || !parser2 || !mux || !sink) {
-        g_printerr("Failed to create one or more elements\n");
+        g_printerr("Failed to create one or more elements. Missing:\n");
+        if (!source) g_printerr("  - filesrc\n");
+        if (!demux) g_printerr("  - qtdemux\n");
+        if (!parser) g_printerr("  - h264parse\n");
+        if (!decoder) g_printerr("  - nvv4l2decoder\n");
+        if (!streammux) g_printerr("  - nvstreammux\n");
+        if (!pgie) g_printerr("  - nvinfer\n");
+        if (!tracker_elem) g_printerr("  - nvtracker\n");
+        if (!nvvidconv) g_printerr("  - nvvideoconvert\n");
+        if (!nvosd) g_printerr("  - nvdsosd\n");
+        if (!encoder) g_printerr("  - nvv4l2h264enc\n");
+        if (!mux) g_printerr("  - qtmux\n");
+        if (!sink) g_printerr("  - filesink\n");
         return FALSE;
     }
 
+    g_print("All GStreamer elements created successfully\n");
+
     /* Configure elements */
     g_object_set(G_OBJECT(source), "location", ctx->config->input_file, NULL);
+    g_print("Configured source: %s\n", ctx->config->input_file);
 
+    // Usar la resolución detectada del video
     g_object_set(G_OBJECT(streammux),
                  "batch-size", 1,
-                 "width", 1920,
-                 "height", 1080,
+                 "width", ctx->stream_width,
+                 "height", ctx->stream_height,
                  "batched-push-timeout", 4000000,
+                 "live-source", 0,
                  NULL);
+    g_print("Configured streammux: %dx%d\n", ctx->stream_width, ctx->stream_height);
 
+    // Verificar archivo de configuración del modelo
+    const gchar *pgie_config = "/opt/nvidia/deepstream/deepstream/samples/configs/deepstream-app/config_infer_primary.txt";
+    if (!file_exists(pgie_config)) {
+        g_printerr("ERROR: PGIE config file not found: %s\n", pgie_config);
+        g_printerr("Trying alternative path...\n");
+        pgie_config = "/opt/nvidia/deepstream/deepstream-6.0/samples/configs/deepstream-app/config_infer_primary.txt";
+        if (!file_exists(pgie_config)) {
+            g_printerr("ERROR: PGIE config file not found in alternative path either\n");
+            return FALSE;
+        }
+    }
+    
     g_object_set(G_OBJECT(pgie),
-                 "config-file-path",
-                 "/opt/nvidia/deepstream/deepstream/samples/configs/deepstream-app/config_infer_primary.txt",
+                 "config-file-path", pgie_config,
                  NULL);
+    g_print("Configured PGIE with config: %s\n", pgie_config);
+
+    // Verificar archivo de configuración del tracker
+    const gchar *tracker_config = "/opt/nvidia/deepstream/deepstream/samples/configs/deepstream-app/config_tracker_NvDCF_perf.yml";
+    const gchar *tracker_lib = "/opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so";
+    
+    if (!file_exists(tracker_config)) {
+        g_printerr("WARNING: Tracker config not found: %s\n", tracker_config);
+        g_printerr("Trying alternative path...\n");
+        tracker_config = "/opt/nvidia/deepstream/deepstream-6.0/samples/configs/deepstream-app/config_tracker_NvDCF_perf.yml";
+        if (!file_exists(tracker_config)) {
+            g_printerr("WARNING: Tracker config not found in alternative path\n");
+        }
+    }
+    
+    if (!file_exists(tracker_lib)) {
+        g_printerr("WARNING: Tracker library not found: %s\n", tracker_lib);
+        tracker_lib = "/opt/nvidia/deepstream/deepstream-6.0/lib/libnvds_nvmultiobjecttracker.so";
+        if (!file_exists(tracker_lib)) {
+            g_printerr("WARNING: Tracker library not found in alternative path\n");
+        }
+    }
 
     g_object_set(G_OBJECT(tracker_elem),
                  "tracker-width", 640,
                  "tracker-height", 384,
-                 "ll-lib-file", "/opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so",
-                 "ll-config-file",
-                 "/opt/nvidia/deepstream/deepstream/samples/configs/deepstream-app/config_tracker_NvDCF_perf.yml",
+                 "ll-lib-file", tracker_lib,
+                 "ll-config-file", tracker_config,
                  NULL);
+    g_print("Configured tracker\n");
 
     g_object_set(G_OBJECT(encoder),
                  "bitrate", 4000000,
@@ -192,12 +275,14 @@ gboolean pipeline_create(PipelineContext *ctx) {
                  "insert-sps-pps", TRUE,
                  "iframeinterval", 30,
                  NULL);
+    g_print("Configured encoder\n");
 
     g_object_set(G_OBJECT(sink),
                  "location", ctx->config->output_file,
                  "sync", FALSE,
                  "async", FALSE,
                  NULL);
+    g_print("Configured sink: %s\n", ctx->config->output_file);
 
     GstCaps *caps = gst_caps_from_string("video/x-raw(memory:NVMM), format=NV12");
     g_object_set(G_OBJECT(capsfilter), "caps", caps, NULL);
@@ -210,12 +295,14 @@ gboolean pipeline_create(PipelineContext *ctx) {
                      nvvidconv, nvosd,
                      nvvidconv2, capsfilter, encoder, parser2, mux, sink,
                      NULL);
+    g_print("All elements added to pipeline\n");
 
     /* Link elements */
     if (!gst_element_link(source, demux)) {
         g_printerr("Failed to link source -> demux\n");
         return FALSE;
     }
+    g_print("Linked: source -> demux\n");
 
     g_signal_connect(demux, "pad-added", G_CALLBACK(on_pad_added), parser);
 
@@ -223,9 +310,12 @@ gboolean pipeline_create(PipelineContext *ctx) {
         g_printerr("Failed to link parser -> decoder\n");
         return FALSE;
     }
+    g_print("Linked: parser -> decoder\n");
 
+    /* decoder -> streammux (request pad) */
     GstPad *decoder_src = gst_element_get_static_pad(decoder, "src");
     GstPad *mux_sink = gst_element_get_request_pad(streammux, "sink_0");
+    
     if (gst_pad_link(decoder_src, mux_sink) != GST_PAD_LINK_OK) {
         g_printerr("Failed to link decoder -> streammux\n");
         gst_object_unref(decoder_src);
@@ -234,6 +324,7 @@ gboolean pipeline_create(PipelineContext *ctx) {
     }
     gst_object_unref(decoder_src);
     gst_object_unref(mux_sink);
+    g_print("Linked: decoder -> streammux\n");
 
     if (!gst_element_link_many(streammux, pgie, tracker_elem,
                                nvvidconv, nvosd,
@@ -242,6 +333,7 @@ gboolean pipeline_create(PipelineContext *ctx) {
         g_printerr("Failed to link main pipeline\n");
         return FALSE;
     }
+    g_print("Linked: streammux -> ... -> sink\n");
 
     /* OSD pad probe */
     osd_sink_pad = gst_element_get_static_pad(nvosd, "sink");
@@ -252,11 +344,14 @@ gboolean pipeline_create(PipelineContext *ctx) {
     gst_pad_add_probe(osd_sink_pad, GST_PAD_PROBE_TYPE_BUFFER,
                       osd_sink_pad_buffer_probe, NULL, NULL);
     gst_object_unref(osd_sink_pad);
+    g_print("OSD pad probe added\n");
 
     /* Bus */
     bus = gst_pipeline_get_bus(GST_PIPELINE(ctx->pipeline));
     gst_bus_add_watch(bus, bus_call, ctx->loop);
     gst_object_unref(bus);
+    g_print("Bus configured\n");
 
+    g_print("Pipeline created successfully!\n");
     return TRUE;
 }

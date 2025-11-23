@@ -3,7 +3,7 @@
  * Implementación del sistema de tracking
  */
 
-#include "config/track_info.h"
+#include "track_info.hpp"
 #include <string.h>
 
 void tracker_init(TrackerContext *ctx, const ROIParams *roi, gint max_time, GTimer *app_timer) {
@@ -17,6 +17,9 @@ void tracker_init(TrackerContext *ctx, const ROIParams *roi, gint max_time, GTim
     ctx->roi_has_objects = FALSE;
     ctx->roi_has_alerts = FALSE;
     ctx->tracked_objects.clear();
+    
+    g_print(" Tracker inicializado con ROI: x=%.3f, y=%.3f, w=%.3f, h=%.3f\n",
+            ctx->roi.x, ctx->roi.y, ctx->roi.w, ctx->roi.h);
 }
 
 gboolean is_bbox_in_roi(NvOSD_RectParams *bbox, const ROIParams *roi, 
@@ -73,9 +76,10 @@ void tracker_process_object(TrackerContext *ctx, NvDsObjectMeta *obj_meta,
         
         if (track_info->state == STATE_ALERT) {
             ctx->roi_has_alerts = TRUE;
+            // Rosa/Pink para alerta
             obj_meta->rect_params.border_color.red = 1.0f;
-            obj_meta->rect_params.border_color.green = 0.0f;
-            obj_meta->rect_params.border_color.blue = 0.0f;
+            obj_meta->rect_params.border_color.green = 0.41f;
+            obj_meta->rect_params.border_color.blue = 0.71f;
             obj_meta->rect_params.border_color.alpha = 1.0f;
             obj_meta->rect_params.border_width = 4;
         } else {

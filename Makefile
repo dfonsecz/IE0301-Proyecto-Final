@@ -1,90 +1,77 @@
-# Makefile para Sistema de Vigilancia ROI
-# Universidad de Costa Rica - IE0301
+CXX      := g++
+CXXFLAGS := -std=c++17 -O2 -Wall -Wextra -MMD -MP
 
-CC      := g++
-CFLAGS  := -Wall -std=c++11 -MMD -MP     
-LDFLAGS :=
-
-# Rutas
 SRC_DIR   := src
 BUILD_DIR := build
 BIN_DIR   := bin
 TARGET    := roi_surveillance
 OUT       := $(BIN_DIR)/$(TARGET)
 
-#DeepStream / GStreamer 
-DS_PATH := /opt/nvidia/deepstream/deepstream
+DS_PATH     := /opt/nvidia/deepstream/deepstream
+GST_CFLAGS  := $(shell pkg-config --cflags gstreamer-1.0 gstreamer-pbutils-1.0)
+GST_LIBS    := $(shell pkg-config --libs   gstreamer-1.0 gstreamer-pbutils-1.0)
 
-GSTREAMER_INCLUDES := $(shell pkg-config --cflags gstreamer-1.0)
-GSTREAMER_LIBS     := $(shell pkg-config --libs   gstreamer-1.0)
-
-INCLUDES := \
+INC := \
   -I$(SRC_DIR) \
   -I$(SRC_DIR)/config \
   -I$(SRC_DIR)/pipeline \
   -I$(SRC_DIR)/report \
   -I$(SRC_DIR)/roi \
   -I$(DS_PATH)/sources/includes \
-  $(GSTREAMER_INCLUDES)
+  $(GST_CFLAGS)
 
 LIBS := \
-  $(GSTREAMER_LIBS) \
+  $(GST_LIBS) \
   -L$(DS_PATH)/lib \
-  -lnvdsgst_meta \
-  -lnvds_meta \
-  -lnvdsgst_helper \
-  -lnvbufsurface \
-  -lnvbufsurftransform \
+  -lnvdsgst_meta -lnvds_meta -lnvdsgst_helper \
+  -lnvbufsurface -lnvbufsurftransform \
   -Wl,-rpath,$(DS_PATH)/lib
 
-# Sources
 SOURCES := $(shell find $(SRC_DIR) -name '*.cpp')
 OBJECTS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SOURCES))
-DEPS    := $(OBJECTS:.o=.d)
 
-# targets
-.PHONY: all clean distclean help tree
+# Generar lista de archivos .d basada en los objetos (no buscar en disco)
+DEPS := $(OBJECTS:.o=.d)
+
+.PHONY: all clean distclean help clobber
 
 all: $(OUT)
-	@echo "Compilación completa: $(OUT)"
+	@echo "✔ build: $(OUT)"
 
 $(OUT): $(OBJECTS) | $(BIN_DIR)
-	$(CC) $(OBJECTS) -o $@ $(LDFLAGS) $(LIBS)
+	$(CXX) $(OBJECTS) -o $@ $(LIBS)
 
-# Regla patrón: compilar cada .cpp a build/%.o
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)/%
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-
-# Crear directorios espejo en build/ para cada subcarpeta de src
-# Ej: build/config, build/pipeline, etc.
-$(BUILD_DIR)/%:
-	@mkdir -p $@
+# Compilación: crea el directorio padre del .o
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) $(INC) -c $< -o $@
 
 $(BIN_DIR):
 	@mkdir -p $@
 
-# Dependencias automáticas (.d)
--include $(DEPS)
+# Incluir dependencias solo si existen archivos .d
+-include $(wildcard $(BUILD_DIR)/*/*.d) $(wildcard $(BUILD_DIR)/*.d)
 
-# Utilidades
 clean:
 	@rm -rf $(BUILD_DIR)
-	@echo "Limpieza de objetos y dependencias"
+	@echo "✔ objetos y .d limpiados"
 
 distclean: clean
 	@rm -rf $(BIN_DIR)
-	@echo "Limpio)"
+	@echo "✔ binarios limpiados"
+
+# Limpieza dura: borra también cualquier directorio .d mal creado
+clobber: distclean
+	@find $(BUILD_DIR) -type d -name '.d' -exec rm -rf {} + 2>/dev/null || true
+	@rm -rf $(BUILD_DIR) $(BIN_DIR)
+	@echo "✔ clobber completo"
 
 help:
-	@echo "Uso:"
-	@echo "  make            - Compila el proyecto (binario en $(OUT))"
-	@echo "  make clean      - Borra objetos y .d"
-	@echo "  make distclean  - Borra también binarios"
-	@echo "  make tree       - Muestra fuentes detectados"
+	@echo "Targets disponibles:"
+	@echo "  make          - Compila el proyecto"
+	@echo "  make clean    - Elimina objetos y dependencias"
+	@echo "  make distclean- Elimina objetos y binarios"
+	@echo "  make clobber  - Limpieza completa (incluye directorios .d)"
 	@echo ""
-	@echo "Ejecutar:"
-	@echo "  ./$(OUT) vi-file input.mp4 vo-file output.mp4 --time 5"
-
-tree:
-	@echo "Fuentes:" && printf "  %s\n" $(SOURCES)
-
+	@echo "Uso:"
+	@echo "  $(OUT) vi-file input.mp4 vo-file output.mp4 --time 5"
