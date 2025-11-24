@@ -1,6 +1,6 @@
 /*
  * pipeline.cpp
- * Implementación del pipeline GStreamer con mejor manejo de errores
+ * Implementación del pipeline GStreamer
  */
 
 #include "pipeline.hpp"
@@ -145,7 +145,7 @@ GstPadProbeReturn osd_sink_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *info,
 }
 
 gboolean pipeline_create(PipelineContext *ctx) {
-    g_pipeline_ctx = ctx; // Guardar para callbacks
+    g_pipeline_ctx = ctx;
     
     // Verificar archivo de entrada
     if (!file_exists(ctx->config->input_file)) {
@@ -154,6 +154,9 @@ gboolean pipeline_create(PipelineContext *ctx) {
     }
     
     g_print("Input file verified: %s\n", ctx->config->input_file);
+    
+    // Detectar modo UDP
+    gboolean use_udp = (g_strcmp0(ctx->config->mode, "udp") == 0);
     
     GstElement *source, *demux, *parser, *decoder, *streammux;
     GstElement *pgie, *tracker_elem, *nvvidconv, *nvosd;
@@ -180,30 +183,28 @@ gboolean pipeline_create(PipelineContext *ctx) {
     nvvidconv  = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
     nvosd      = gst_element_factory_make("nvdsosd",        "nv-onscreendisplay");
 
-    /* Post-OSD -> encoder -> mp4 */
+    /* Post-OSD -> encoder */
     nvvidconv2 = gst_element_factory_make("nvvideoconvert", "post-osd-conv");
     capsfilter = gst_element_factory_make("capsfilter",     "capsfilter");
     encoder    = gst_element_factory_make("nvv4l2h264enc",  "h264-encoder");
     parser2    = gst_element_factory_make("h264parse",      "h264-parser-out");
-    mux        = gst_element_factory_make("qtmux",          "mp4-muxer");
-    sink       = gst_element_factory_make("filesink",       "file-sink");
+    
+    if (use_udp) {
+        // Modo UDP: RTP payloader + UDP sink
+        mux = gst_element_factory_make("rtph264pay", "rtp-payloader");
+        sink = gst_element_factory_make("udpsink", "udp-sink");
+        g_print("Mode: UDP STREAMING\n");
+    } else {
+        // Modo archivo: MP4 muxer + file sink
+        mux = gst_element_factory_make("qtmux", "mp4-muxer");
+        sink = gst_element_factory_make("filesink", "file-sink");
+        g_print("Mode: FILE OUTPUT\n");
+    }
 
     if (!source || !demux || !parser || !decoder || !streammux ||
         !pgie || !tracker_elem || !nvvidconv || !nvosd ||
         !nvvidconv2 || !capsfilter || !encoder || !parser2 || !mux || !sink) {
-        g_printerr("Failed to create one or more elements. Missing:\n");
-        if (!source) g_printerr("  - filesrc\n");
-        if (!demux) g_printerr("  - qtdemux\n");
-        if (!parser) g_printerr("  - h264parse\n");
-        if (!decoder) g_printerr("  - nvv4l2decoder\n");
-        if (!streammux) g_printerr("  - nvstreammux\n");
-        if (!pgie) g_printerr("  - nvinfer\n");
-        if (!tracker_elem) g_printerr("  - nvtracker\n");
-        if (!nvvidconv) g_printerr("  - nvvideoconvert\n");
-        if (!nvosd) g_printerr("  - nvdsosd\n");
-        if (!encoder) g_printerr("  - nvv4l2h264enc\n");
-        if (!mux) g_printerr("  - qtmux\n");
-        if (!sink) g_printerr("  - filesink\n");
+        g_printerr("Failed to create one or more elements\n");
         return FALSE;
     }
 
@@ -223,44 +224,23 @@ gboolean pipeline_create(PipelineContext *ctx) {
                  NULL);
     g_print("Configured streammux: %dx%d\n", ctx->stream_width, ctx->stream_height);
 
-    // Verificar archivo de configuración del modelo
+    // Configurar PGIE
     const gchar *pgie_config = "/opt/nvidia/deepstream/deepstream/samples/configs/deepstream-app/config_infer_primary.txt";
     if (!file_exists(pgie_config)) {
-        g_printerr("ERROR: PGIE config file not found: %s\n", pgie_config);
-        g_printerr("Trying alternative path...\n");
         pgie_config = "/opt/nvidia/deepstream/deepstream-6.0/samples/configs/deepstream-app/config_infer_primary.txt";
-        if (!file_exists(pgie_config)) {
-            g_printerr("ERROR: PGIE config file not found in alternative path either\n");
-            return FALSE;
-        }
     }
-    
-    g_object_set(G_OBJECT(pgie),
-                 "config-file-path", pgie_config,
-                 NULL);
-    g_print("Configured PGIE with config: %s\n", pgie_config);
+    g_object_set(G_OBJECT(pgie), "config-file-path", pgie_config, NULL);
+    g_print("Configured PGIE\n");
 
-    // Verificar archivo de configuración del tracker
+    // Configurar tracker
     const gchar *tracker_config = "/opt/nvidia/deepstream/deepstream/samples/configs/deepstream-app/config_tracker_NvDCF_perf.yml";
     const gchar *tracker_lib = "/opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so";
-    
     if (!file_exists(tracker_config)) {
-        g_printerr("WARNING: Tracker config not found: %s\n", tracker_config);
-        g_printerr("Trying alternative path...\n");
         tracker_config = "/opt/nvidia/deepstream/deepstream-6.0/samples/configs/deepstream-app/config_tracker_NvDCF_perf.yml";
-        if (!file_exists(tracker_config)) {
-            g_printerr("WARNING: Tracker config not found in alternative path\n");
-        }
     }
-    
     if (!file_exists(tracker_lib)) {
-        g_printerr("WARNING: Tracker library not found: %s\n", tracker_lib);
         tracker_lib = "/opt/nvidia/deepstream/deepstream-6.0/lib/libnvds_nvmultiobjecttracker.so";
-        if (!file_exists(tracker_lib)) {
-            g_printerr("WARNING: Tracker library not found in alternative path\n");
-        }
     }
-
     g_object_set(G_OBJECT(tracker_elem),
                  "tracker-width", 640,
                  "tracker-height", 384,
@@ -269,6 +249,7 @@ gboolean pipeline_create(PipelineContext *ctx) {
                  NULL);
     g_print("Configured tracker\n");
 
+    // Configurar encoder
     g_object_set(G_OBJECT(encoder),
                  "bitrate", 4000000,
                  "preset-level", 1,
@@ -277,12 +258,27 @@ gboolean pipeline_create(PipelineContext *ctx) {
                  NULL);
     g_print("Configured encoder\n");
 
-    g_object_set(G_OBJECT(sink),
-                 "location", ctx->config->output_file,
-                 "sync", FALSE,
-                 "async", FALSE,
-                 NULL);
-    g_print("Configured sink: %s\n", ctx->config->output_file);
+    // Configurar sink según modo
+    if (use_udp) {
+        g_object_set(G_OBJECT(mux),
+                     "config-interval", 1,
+                     "pt", 96,
+                     NULL);
+        g_object_set(G_OBJECT(sink),
+                     "host", ctx->config->udp_host,
+                     "port", ctx->config->udp_port,
+                     "async", FALSE,
+                     "sync", FALSE,
+                     NULL);
+        g_print("Configured UDP sink: %s:%d\n", ctx->config->udp_host, ctx->config->udp_port);
+    } else {
+        g_object_set(G_OBJECT(sink),
+                     "location", ctx->config->output_file,
+                     "sync", FALSE,
+                     "async", FALSE,
+                     NULL);
+        g_print("Configured file sink: %s\n", ctx->config->output_file);
+    }
 
     GstCaps *caps = gst_caps_from_string("video/x-raw(memory:NVMM), format=NV12");
     g_object_set(G_OBJECT(capsfilter), "caps", caps, NULL);
@@ -312,10 +308,8 @@ gboolean pipeline_create(PipelineContext *ctx) {
     }
     g_print("Linked: parser -> decoder\n");
 
-    /* decoder -> streammux (request pad) */
     GstPad *decoder_src = gst_element_get_static_pad(decoder, "src");
     GstPad *mux_sink = gst_element_get_request_pad(streammux, "sink_0");
-    
     if (gst_pad_link(decoder_src, mux_sink) != GST_PAD_LINK_OK) {
         g_printerr("Failed to link decoder -> streammux\n");
         gst_object_unref(decoder_src);
@@ -333,7 +327,12 @@ gboolean pipeline_create(PipelineContext *ctx) {
         g_printerr("Failed to link main pipeline\n");
         return FALSE;
     }
-    g_print("Linked: streammux -> ... -> sink\n");
+    
+    if (use_udp) {
+        g_print("Linked: streammux -> ... -> rtph264pay -> udpsink\n");
+    } else {
+        g_print("Linked: streammux -> ... -> qtmux -> filesink\n");
+    }
 
     /* OSD pad probe */
     osd_sink_pad = gst_element_get_static_pad(nvosd, "sink");

@@ -1,5 +1,5 @@
 /*
- * config.hpp
+ * config.h
  * Configuración y estructuras de datos del sistema
  */
 
@@ -27,24 +27,6 @@ struct AppConfig {
 // ROI normalizado (0-1)
 struct ROIParams {
     float x, y, w, h;
-};
-
-// Estados del objeto
-enum ObjectState {
-    STATE_OUTSIDE,
-    STATE_INSIDE,
-    STATE_ALERT
-};
-
-// Información de seguimiento por objeto
-struct TrackInfo {
-    guint64 track_id;
-    ObjectState state;
-    GTimer *timer;
-    gdouble total_time;
-    gdouble entry_timestamp;
-    gchar *class_name;
-    gboolean alert_triggered;
 };
 
 // Parse argumentos de línea de comandos

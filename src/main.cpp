@@ -62,6 +62,7 @@ int main(int argc, char *argv[]) {
     g_print("Resolution: %dx%d\n", video_info.width, video_info.height);
     g_print("ROI: [%.2f, %.2f, %.2f, %.2f]\n", roi.x, roi.y, roi.w, roi.h);
     g_print("Max time: %d s\n", config.max_time_seconds);
+    g_print("Mode: %s\n", config.mode);
     
     // Inicializar tracker
     tracker_init(&tracker, &roi, config.max_time_seconds, app_timer);
@@ -81,11 +82,15 @@ int main(int argc, char *argv[]) {
         return -1;
     }
     
-    g_print("Starting pipeline...\n");
+    g_print("\n");
+    g_print("Iniciando pipeline...\n");
+    g_print("Press Ctrl+C to stop\n");
+    g_print("\n");
+    
     gst_element_set_state(pipeline_ctx.pipeline, GST_STATE_PLAYING);
     g_main_loop_run(pipeline_ctx.loop);
     
-    g_print("Cleaning up...\n");
+    g_print("\nLimpiando...\n");
     cleanup(&pipeline_ctx, &tracker, &config, app_timer);
     g_main_loop_unref(pipeline_ctx.loop);
     
