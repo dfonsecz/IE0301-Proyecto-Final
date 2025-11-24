@@ -1,5 +1,5 @@
 /*
- * config.cpp
+ * app_config.cpp
  * Implementación del parser de argumentos
  */
 
@@ -15,7 +15,7 @@ gboolean parse_arguments(int argc, char *argv[], AppConfig *config, ROIParams *r
     config->max_time_seconds = 5;
     config->report_file = g_strdup("report.txt");
     config->output_file = g_strdup("output.mp4");
-    config->mode = g_strdup("video");
+    config->mode = g_strdup("video");  // Por defecto: modo video
     config->udp_port = 5000;
     config->udp_host = g_strdup("127.0.0.1");
     config->input_file = NULL;
@@ -50,21 +50,45 @@ gboolean parse_arguments(int argc, char *argv[], AppConfig *config, ROIParams *r
         } else if (g_strcmp0(argv[i], "--mode") == 0 && i + 1 < argc) {
             g_free(config->mode);
             config->mode = g_strdup(argv[++i]);
+        } else if (g_strcmp0(argv[i], "--udp-host") == 0 && i + 1 < argc) {
+            g_free(config->udp_host);
+            config->udp_host = g_strdup(argv[++i]);
+        } else if (g_strcmp0(argv[i], "--udp-port") == 0 && i + 1 < argc) {
+            config->udp_port = atoi(argv[++i]);
         }
     }
     
     if (!config->input_file) {
         g_printerr("Error: Debe especificar vi-file <input>\n");
         g_printerr("Uso: %s vi-file <input.mp4> [opciones]\n", argv[0]);
-        g_printerr("Opciones:\n");
-        g_printerr("  --width <0-1>   : Ancho del ROI normalizado (default: 0.4)\n");
-        g_printerr("  --height <0-1>  : Alto del ROI normalizado (default: 0.4)\n");
-        g_printerr("  --left <0-1>    : Posición X del ROI\n");
-        g_printerr("  --top <0-1>     : Posición Y del ROI\n");
-        g_printerr("  --center        : Centrar el ROI automáticamente\n");
-        g_printerr("  --time <seg>    : Tiempo máximo en ROI (default: 5)\n");
+        g_printerr("\nOpciones de ROI:\n");
+        g_printerr("  --width <0-1>     : Ancho del ROI normalizado (default: 0.4)\n");
+        g_printerr("  --height <0-1>    : Alto del ROI normalizado (default: 0.4)\n");
+        g_printerr("  --left <0-1>      : Posicion X del ROI\n");
+        g_printerr("  --top <0-1>       : Posicion Y del ROI\n");
+        g_printerr("  --center          : Centrar el ROI automaticamente\n");
+        g_printerr("  --time <seg>      : Tiempo maximo en ROI (default: 5)\n");
+        g_printerr("\nModos de salida:\n");
+        g_printerr("  --mode video      : Guardar a archivo (default)\n");
+        g_printerr("  --mode udp        : Streaming por UDP/RTP\n");
+        g_printerr("\nOpciones por modo:\n");
+        g_printerr("  vo-file <archivo> : Archivo de salida (modo video)\n");
+        g_printerr("  --udp-host <host> : Host para UDP (default: 127.0.0.1)\n");
+        g_printerr("  --udp-port <port> : Puerto para UDP (default: 5000)\n");
+        g_printerr("\nOtras opciones:\n");
         g_printerr("  --file-name <archivo> : Nombre del archivo de reporte\n");
-        g_printerr("  vo-file <salida>: Archivo de video de salida\n");
+        g_printerr("\nEjemplos:\n");
+        g_printerr("  # Guardar a archivo\n");
+        g_printerr("  %s vi-file input.mp4 vo-file output.mp4\n", argv[0]);
+        g_printerr("\n  # Streaming UDP\n");
+        g_printerr("  %s vi-file input.mp4 --mode udp --udp-port 5000\n", argv[0]);
+        return FALSE;
+    }
+    
+    // Validar modo
+    if (g_strcmp0(config->mode, "video") != 0 && 
+        g_strcmp0(config->mode, "udp") != 0) {
+        g_printerr("ERROR: Modo invalido '%s'. Use 'video' o 'udp'\n", config->mode);
         return FALSE;
     }
     

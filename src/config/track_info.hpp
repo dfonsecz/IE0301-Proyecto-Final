@@ -1,5 +1,5 @@
 /*
- * tracker.hpp
+ * tracker.h
  * Sistema de tracking de objetos y ROI
  */
 
@@ -11,6 +11,25 @@
 #include <unordered_map>
 #include "app_config.hpp"
 #include "gstnvdsmeta.h"
+
+// Estados del objeto
+enum ObjectState {
+    STATE_OUTSIDE,
+    STATE_INSIDE,
+    STATE_ALERT
+};
+
+// Información de seguimiento por objeto
+struct TrackInfo {
+    guint64 track_id;
+    ObjectState state;
+    GTimer *timer;
+    gdouble total_time;
+    gdouble entry_timestamp;
+    gchar *class_name;
+    gboolean alert_triggered;
+    gdouble alert_start_time;  // Tiempo cuando se activó la alerta
+};
 
 // Contexto del tracker
 struct TrackerContext {

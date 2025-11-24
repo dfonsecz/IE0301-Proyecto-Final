@@ -1,0 +1,4 @@
+ROI: left: 254 top: 144 width: 339 height: 192
+Max time: 3s
+Detected: 5 (1)
+1:35 Car time 3s alert
