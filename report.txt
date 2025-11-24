@@ -1,7 +1,0 @@
-ROI: left: 249 top: 139 width: 332 height: 185
-Max time: 2s
-Detected: 14 (3)
-1:58 Car time 2s alert
-1:55 Car time 0s
-1:50 Car time 2s alert
-1:51 Car time 10s alert
