@@ -35,12 +35,14 @@ def parse_tegrastats_line(line):
             data['cpu_avg'] = sum(cpu_usage) / len(cpu_usage)
             data['cpu_cores'] = cpu_usage
     
-    # GPU usage: GR3D_FREQ X%@YMHz
-    # Ejemplo: GR3D_FREQ 99%@921
-    gpu_match = re.search(r'GR3D_FREQ (\d+)%@(\d+)', line)
+    # GPU usage: GR3D_FREQ X% o GR3D_FREQ X%@Y
+    gpu_match = re.search(r'GR3D_FREQ (\d+)%(?:@(\d+))?', line)
     if gpu_match:
         data['gpu_usage'] = int(gpu_match.group(1))
-        data['gpu_freq'] = int(gpu_match.group(2))
+        if gpu_match.group(2):
+            data['gpu_freq'] = int(gpu_match.group(2))
+        else:
+            data['gpu_freq'] = None   # A veces Jetson no reporta frecuencia
     
     # RAM usage: RAM XXXX/YYYYMB
     # Ejemplo: RAM 2847/3964MB
