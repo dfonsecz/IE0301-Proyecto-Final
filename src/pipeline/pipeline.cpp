@@ -124,18 +124,28 @@ GstPadProbeReturn osd_sink_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *info,
             tracker->source_height = fmeta->source_frame_height;
         }
         
-        for (NvDsMetaList *l_obj = fmeta->obj_meta_list; l_obj; 
-             l_obj = l_obj->next) {
+        for (NvDsMetaList *l_obj = fmeta->obj_meta_list; l_obj; l_obj = l_obj->next) {
             NvDsObjectMeta *obj_meta = (NvDsObjectMeta *)l_obj->data;
-            
-            if (obj_meta) {
-                guint64 track_id = obj_meta->object_id;
-                active_tracks[track_id] = true;
-                tracker_process_object(tracker, obj_meta,
-                                     fmeta->source_frame_width, 
-                                     fmeta->source_frame_height);
+
+            if (!obj_meta)
+                continue;
+
+            if (obj_meta->obj_label == nullptr ||
+                g_strcmp0(obj_meta->obj_label, "car") != 0) {
+                continue;  // ignorar todo lo que no sea un carro
             }
+
+            guint64 track_id = obj_meta->object_id;
+            active_tracks[track_id] = true;
+
+            tracker_process_object(
+                tracker,
+                obj_meta,
+                fmeta->source_frame_width,
+                fmeta->source_frame_height
+            );
         }
+
         
         draw_roi_rect(batch_meta, fmeta, &tracker->roi, 
                      tracker->roi_has_objects, tracker->roi_has_alerts);
