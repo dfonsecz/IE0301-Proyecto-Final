@@ -14,7 +14,6 @@ import sys
 import glob
 from pathlib import Path
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 from datetime import datetime, timedelta
 
 def parse_tegrastats_line(line):
@@ -35,12 +34,14 @@ def parse_tegrastats_line(line):
             data['cpu_avg'] = sum(cpu_usage) / len(cpu_usage)
             data['cpu_cores'] = cpu_usage
     
-    # GPU usage: GR3D_FREQ X%@YMHz
-    # Ejemplo: GR3D_FREQ 99%@921
-    gpu_match = re.search(r'GR3D_FREQ (\d+)%@(\d+)', line)
+    # GPU usage: GR3D_FREQ X% o GR3D_FREQ X%@Y
+    gpu_match = re.search(r'GR3D_FREQ (\d+)%(?:@(\d+))?', line)
     if gpu_match:
         data['gpu_usage'] = int(gpu_match.group(1))
-        data['gpu_freq'] = int(gpu_match.group(2))
+        if gpu_match.group(2):
+            data['gpu_freq'] = int(gpu_match.group(2))
+        else:
+            data['gpu_freq'] = None   # A veces Jetson no reporta frecuencia
     
     # RAM usage: RAM XXXX/YYYYMB
     # Ejemplo: RAM 2847/3964MB
@@ -56,13 +57,7 @@ def parse_tegrastats_line(line):
     temp_match = re.search(r'CPU@([\d.]+)C', line)
     if temp_match:
         data['temp_cpu'] = float(temp_match.group(1))
-    
-    # Power: POM_5V_IN XXXX/YYYYMW
-    power_match = re.search(r'POM_5V_IN (\d+)/(\d+)', line)
-    if power_match:
-        data['power_current'] = int(power_match.group(1))
-        data['power_max'] = int(power_match.group(2))
-    
+        
     return data
 
 def parse_tegrastats_file(filepath):
@@ -72,8 +67,7 @@ def parse_tegrastats_file(filepath):
         'cpu_avg': [],
         'gpu_usage': [],
         'ram_percent': [],
-        'temp_cpu': [],
-        'power_current': []
+        'temp_cpu': []
     }
     
     start_time = datetime.now()
@@ -92,7 +86,6 @@ def parse_tegrastats_file(filepath):
                 data['gpu_usage'].append(parsed.get('gpu_usage', 0))
                 data['ram_percent'].append(parsed.get('ram_percent', 0))
                 data['temp_cpu'].append(parsed.get('temp_cpu', 0))
-                data['power_current'].append(parsed.get('power_current', 0))
     
     return data
 
@@ -150,26 +143,15 @@ def plot_single_video(filepath, output_dir='plots'):
     ax.set_ylim([0, 100])
     ax.legend()
     
-    # Temperature & Power
+    # Temperature
     ax = axes[1, 1]
-    ax2 = ax.twinx()
-    
-    line1 = ax.plot(time_seconds, data['temp_cpu'], 'orange', linewidth=2, label='Temperatura')
+    ax.plot(time_seconds, data['temp_cpu'], 'orange', linewidth=2, label='Temperatura CPU')
     ax.set_ylabel('Temperatura (°C)', fontsize=12, color='orange')
     ax.tick_params(axis='y', labelcolor='orange')
     ax.set_xlabel('Tiempo (s)', fontsize=12)
-    ax.set_title('Temperatura y Potencia', fontweight='bold')
+    ax.set_title('Temperatura CPU', fontweight='bold')
     ax.grid(True, alpha=0.3)
-    
-    power_w = [p/1000 for p in data['power_current']]  # Convertir a Watts
-    line2 = ax2.plot(time_seconds, power_w, 'purple', linewidth=2, label='Potencia')
-    ax2.set_ylabel('Potencia (W)', fontsize=12, color='purple')
-    ax2.tick_params(axis='y', labelcolor='purple')
-    
-    # Leyenda combinada
-    lines = line1 + line2
-    labels = [l.get_label() for l in lines]
-    ax.legend(lines, labels, loc='upper left')
+    ax.legend(loc='upper left')
     
     plt.tight_layout()
     
@@ -187,8 +169,6 @@ def plot_single_video(filepath, output_dir='plots'):
     print(f"   RAM Promedio:  {sum(data['ram_percent'])/len(data['ram_percent']):.1f}%")
     print(f"   Temp Promedio: {sum(data['temp_cpu'])/len(data['temp_cpu']):.1f}C")
     print(f"   Temp Maxima:   {max(data['temp_cpu']):.1f}C")
-    avg_power = sum([p/1000 for p in data['power_current']]) / len(data['power_current'])
-    print(f"   Potencia Prom: {avg_power:.2f}W")
     print()
     
     plt.close()

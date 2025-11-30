@@ -82,7 +82,7 @@ for video in "$INPUT"/*.mp4; do
 done
 
 echo "=============================================="
-echo "Completado! Revisa:"
+echo "Completado! :)"
 echo "   Videos:   $OUTPUT/"
 echo "   Reportes: $REPORTS/"
 if [ "$MONITOR" = true ]; then
