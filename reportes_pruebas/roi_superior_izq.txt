@@ -1,3 +1,0 @@
-ROI: left: 83 top: 46 width: 291 height: 162
-Max time: 5s
-Detected: 14 (0)
