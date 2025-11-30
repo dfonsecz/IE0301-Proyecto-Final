@@ -160,16 +160,25 @@ def plot_single_video(filepath, output_dir='plots'):
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
     print(f"[OK] Grafico guardado: {output_file}")
     
-    # Imprimir estadísticas
+# Imprimir estadísticas
+    cpu_avg = sum(data['cpu_avg']) / len(data['cpu_avg'])
+    cpu_max = max(data['cpu_avg'])
+    gpu_avg = sum(data['gpu_usage']) / len(data['gpu_usage'])
+    gpu_max = max(data['gpu_usage'])
+    ram_avg = sum(data['ram_percent']) / len(data['ram_percent'])
+    ram_max = max(data['ram_percent'])
+    temp_avg = sum(data['temp_cpu']) / len(data['temp_cpu'])
+    temp_max = max(data['temp_cpu'])
+
     print(f"\nEstadisticas de {video_name}:")
-    print(f"   CPU Promedio:  {sum(data['cpu_avg'])/len(data['cpu_avg']):.1f}%")
-    print(f"   CPU Maximo:    {max(data['cpu_avg']):.1f}%")
-    print(f"   GPU Promedio:  {sum(data['gpu_usage'])/len(data['gpu_usage']):.1f}%")
-    print(f"   GPU Maximo:    {max(data['gpu_usage']):.1f}%")
-    print(f"   RAM Promedio:  {sum(data['ram_percent'])/len(data['ram_percent']):.1f}%")
-    print(f"   Temp Promedio: {sum(data['temp_cpu'])/len(data['temp_cpu']):.1f}C")
-    print(f"   Temp Maxima:   {max(data['temp_cpu']):.1f}C")
-    print()
+    print(f"   CPU Promedio:  {cpu_avg:.1f}%")
+    print(f"   CPU Maximo:    {cpu_max:.1f}%")
+    print(f"   GPU Promedio:  {gpu_avg:.1f}%")
+    print(f"   GPU Maximo:    {gpu_max:.1f}%")
+    print(f"   RAM Promedio:  {ram_avg:.1f}%")
+    print(f"   RAM Maxima:    {ram_max:.1f}%")
+    print(f"   Temp Promedio: {temp_avg:.1f}C")
+    print(f"   Temp Maxima:   {temp_max:.1f}C")
     
     plt.close()
 
