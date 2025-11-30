@@ -1,3 +1,4 @@
+
 # IE0301 Proyecto Final - Sistema de Vigilancia con ROI
 
 ## Descripción
@@ -392,3 +393,4 @@ Este proyecto utiliza una licencia del MIT. Los detalles pueden encontrarse en [
 - [NVIDIA DeepStream SDK Documentation](https://docs.nvidia.com/metropolis/deepstream/dev-guide/)
 - [GStreamer Documentation](https://gstreamer.freedesktop.org/documentation/)
 - [NVIDIA Jetson Developer Zone](https://developer.nvidia.com/embedded/jetson-developer-kit)
+
