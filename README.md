@@ -13,10 +13,10 @@ Sistema de vigilancia inteligente basado en visión por computador e inteligenci
 - Generación automática de reportes con estadísticas de detección
 - Soporte para múltiples modos de salida: archivo de video, streaming UDP/RTP y display local
 - Visualización con código de colores:
-  - Verde: Vehículos fuera de la ROI
-  - Naranja: Vehículos dentro de la ROI (tiempo < límite)
-  - Rosa: Vehículos en alerta (tiempo > límite)
-  - Efecto de parpadeo al activarse la alerta
+  - **Verde:** Vehículos fuera de la ROI
+  - **Naranja:** Vehículos dentro de la ROI (tiempo < límite)
+  - **Rosa:** Vehículos en alerta (tiempo > límite)
+  - Efecto de **parpadeo** al activarse la alerta
 
 ## Índice
 
@@ -56,13 +56,13 @@ Sistema de vigilancia inteligente basado en visión por computador e inteligenci
 
 El sistema utiliza un pipeline de DeepStream compuesto por los siguientes elementos:
 
-1. **Decodificación de video:** nvv4l2decoder para aceleración por hardware
-2. **Multiplexado de streams:** nvstreammux con resolución dinámica detectada
-3. **Inferencia primaria:** nvinfer con modelo ResNet10 pre-entrenado
-4. **Tracking multi-objeto:** nvtracker con algoritmo NvDCF
-5. **Conversión de formato:** nvvideoconvert
-6. **Overlay en pantalla:** nvdsosd para visualización de bounding boxes y ROI
-7. **Codificación:** nvv4l2h264enc para salida de video
+1. **Decodificación de video:** `nvv4l2decoder` para aceleración por hardware
+2. **Multiplexado de streams:** `nvstreammux` con resolución dinámica detectada
+3. **Inferencia primaria:** `nvinfer` con modelo **ResNet10** pre-entrenado
+4. **Tracking multi-objeto:** `nvtracker` con algoritmo NvDCF
+5. **Conversión de formato:** `nvvideoconvert`
+6. **Overlay en pantalla:** `nvdsosd` para visualización de bounding boxes y ROI
+7. **Codificación:** `nvv4l2h264enc` para salida de video
 
 ### Detección y clasificación
 
@@ -73,7 +73,7 @@ El modelo ResNet10 detecta las siguientes clases de objetos:
 - **class_id 5:** Bus
 - **class_id 7:** Truck (Camión)
 
-Solo los vehículos (cars, bicycles, buses, trucks) son rastreados y pueden generar alertas.
+Solo los automóviles son rastreados y pueden generar alertas para efectos de esta aplicación.
 
 ### Lógica de seguimiento
 
@@ -350,10 +350,9 @@ El sistema genera un reporte de texto con el siguiente formato:
 ```
 ROI: left: 249 top: 139 width: 332 height: 185
 Max time: 5s
-Detected: 15 (3)
-0:05 car time 8s alert
-0:12 truck time 6s alert
-0:25 car time 3s
+Detected: 2 (1)
+1:32 Car time 12s alert
+1:32 Car time 3s
 ```
 
 Donde:
