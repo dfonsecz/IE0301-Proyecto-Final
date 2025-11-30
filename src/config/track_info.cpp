@@ -36,10 +36,10 @@ void tracker_process_object(TrackerContext *ctx, NvDsObjectMeta *obj_meta,
     
     // FILTRO: Solo procesar vehículos (class_id 0 = Car, 2 = Bicycle, 5 = Bus, 7 = Truck)
     // Las personas son class_id 1 (Person)
-    gboolean is_vehicle = (obj_meta->class_id == 0 ||  // Car
-                           obj_meta->class_id == 2 ||  // Bicycle  
-                           obj_meta->class_id == 5 ||  // Bus
-                           obj_meta->class_id == 7);   // Truck
+    gboolean is_vehicle = (obj_meta->class_id == 0);  // Car
+                           //obj_meta->class_id == 2 ||  // Bicycle  
+                           //obj_meta->class_id == 5 ||  // Bus
+                           //obj_meta->class_id == 7);   // Truck
     
     if (!is_vehicle) {
         // Si es persona u otro objeto, dibujar borde verde y salir
